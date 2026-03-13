@@ -8,6 +8,7 @@ vi.mock('../src/integrations/ondcClient.js', () => ({
   ondcClient: {
     startFlow: vi.fn(),
     proceedFlow: vi.fn(),
+    checkHealth: vi.fn().mockResolvedValue({ status: 'OK' }),
   }
 }));
 
@@ -42,8 +43,11 @@ describe('E2E Flow Orchestration', () => {
   });
 
   it('should complete a full Search -> Select -> Init -> Confirm journey', async () => {
-    // Mock Supabase to return nothing (first time search)
-    mockSingle.mockResolvedValueOnce({ data: null, error: null });
+    mockSingle
+      .mockResolvedValueOnce({ data: null, error: null })
+      .mockResolvedValueOnce({ data: { session_id: sessionId }, error: null })
+      .mockResolvedValueOnce({ data: { session_id: sessionId }, error: null })
+      .mockResolvedValueOnce({ data: { session_id: sessionId }, error: null });
 
     // 1. Search
     (ondcClient.startFlow as any).mockResolvedValue({ 
