@@ -1,111 +1,70 @@
-import { supabase } from '../lib/supabase.js';
-import { logger } from '../utils/logger.js';
-import { Order, OrderStats } from '../types/order.js';
+/**
+ * OrderService Facade
+ *
+ * Thin re-export layer that delegates to focused sub-modules.
+ * Preserves the existing `orderService` singleton API so no controller
+ * or route changes are required.
+ */
+import { Order, OrderItem, SellerOrder } from '../types/models.js';
+
+import { initiateOrder } from './order/orderInitiationService.js';
+import { confirmOrder } from './order/orderConfirmationService.js';
+import {
+  getSellerOrders,
+  getBuyerOrders,
+  getSellerStats,
+  getBuyerStats,
+  getActivePendingOrder,
+} from './order/orderQueryService.js';
+import {
+  updateOrderStatus,
+  handlePaymentFailure,
+  incrementPaymentAttempt,
+} from './order/orderMutationService.js';
 
 export class OrderService {
-  async getSellerOrders(sellerId: string): Promise<Order[]> {
-    const { data, error } = await supabase
-      .from('orders')
-      .select('*')
-      .eq('seller_id', sellerId)
-      .order('created_at', { ascending: false });
+  // ── T1: Initiation ──────────────────────────────────────────────
+  async initiateOrder(orderData: Partial<Order>, items: Partial<OrderItem>[]): Promise<Order> {
+    return initiateOrder(orderData, items);
+  }
 
-    if (error) {
-      logger.error(`Error fetching orders for seller ${sellerId}`, error);
-      throw error;
-    }
+  // ── T3: Confirmation ────────────────────────────────────────────
+  async confirmOrder(uid: string, orderId: string, paymentId: string, idempotencyKey?: string): Promise<Order> {
+    return confirmOrder(uid, orderId, paymentId, idempotencyKey);
+  }
 
-    return data || [];
+  // ── Mutations ───────────────────────────────────────────────────
+  async updateOrderStatus(orderId: string, status: Order['status']): Promise<void> {
+    return updateOrderStatus(orderId, status);
+  }
+
+  async handlePaymentFailure(uid: string, orderId: string, reason: string): Promise<void> {
+    return handlePaymentFailure(uid, orderId, reason);
+  }
+
+  async incrementPaymentAttempt(orderId: string): Promise<void> {
+    return incrementPaymentAttempt(orderId);
+  }
+
+  // ── Queries ─────────────────────────────────────────────────────
+  async getSellerOrders(sellerId: string): Promise<SellerOrder[]> {
+    return getSellerOrders(sellerId);
   }
 
   async getBuyerOrders(buyerId: string): Promise<Order[]> {
-    const { data, error } = await supabase
-      .from('orders')
-      .select('*')
-      .eq('buyer_id', buyerId)
-      .order('created_at', { ascending: false });
-
-    if (error) {
-      logger.error(`Error fetching orders for buyer ${buyerId}`, error);
-      throw error;
-    }
-
-    return data || [];
+    return getBuyerOrders(buyerId);
   }
 
-  async getSellerStats(sellerId: string): Promise<OrderStats> {
-    try {
-      // Fetch product count
-      const { count: productsCount, error: pError } = await supabase
-        .from('products')
-        .select('*', { count: 'exact', head: true })
-        .eq('seller_id', sellerId);
-
-      if (pError) throw pError;
-
-      // Fetch order stats
-      const { data: orders, error: oError } = await supabase
-        .from('orders')
-        .select('total_amount, status')
-        .eq('seller_id', sellerId);
-
-      if (oError) throw oError;
-
-      const revenue = orders?.reduce((acc, order) => acc + Number(order.total_amount), 0) || 0;
-      const ordersCount = orders?.length || 0;
-      const pendingOrdersCount = orders?.filter(o => o.status === 'PENDING').length || 0;
-
-      return {
-        productsCount: productsCount || 0,
-        ordersCount,
-        revenue,
-        pendingOrdersCount
-      };
-    } catch (error) {
-      logger.error(`Error calculating stats for seller ${sellerId}`, error);
-      throw error;
-    }
+  async getSellerStats(sellerId: string) {
+    return getSellerStats(sellerId);
   }
 
-  async getBuyerStats(buyerId: string): Promise<OrderStats> {
-    try {
-      const { data: orders, error: oError } = await supabase
-        .from('orders')
-        .select('total_amount, status')
-        .eq('buyer_id', buyerId);
-
-      if (oError) throw oError;
-
-      const totalSpent = orders?.reduce((acc, order) => acc + Number(order.total_amount), 0) || 0;
-      const ordersCount = orders?.length || 0;
-      const pendingOrdersCount = orders?.filter(o => o.status === 'PENDING').length || 0;
-
-      return {
-        productsCount: 0,
-        ordersCount,
-        revenue: totalSpent,
-        pendingOrdersCount
-      };
-    } catch (error) {
-      logger.error(`Error calculating stats for buyer ${buyerId}`, error);
-      throw error;
-    }
+  async getBuyerStats(buyerId: string) {
+    return getBuyerStats(buyerId);
   }
 
-  async updateOrderStatus(orderId: string, status: string): Promise<Order> {
-    const { data, error } = await supabase
-      .from('orders')
-      .update({ status })
-      .eq('id', orderId)
-      .select()
-      .single();
-
-    if (error) {
-      logger.error(`Error updating order status for order ${orderId}`, error);
-      throw error;
-    }
-
-    return data;
+  async getActivePendingOrder(uid: string): Promise<Order | null> {
+    return getActivePendingOrder(uid);
   }
 }
 

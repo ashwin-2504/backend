@@ -1,6 +1,8 @@
+import 'dotenv/config';
+import { validateEnv } from '../src/utils/config.js';
 import app from '../src/app.js';
-import dotenv from 'dotenv';
 
-dotenv.config();
+// Fail fast on missing env vars — surfaces errors in Vercel function logs
+validateEnv();
 
 export default app;

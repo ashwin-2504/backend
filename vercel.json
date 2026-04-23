@@ -8,7 +8,7 @@
   ],
   "crons": [
     {
-      "path": "/api/cron/supabase-keepalive",
+      "path": "/api/cron/firebase-keepalive",
       "schedule": "0 0 * * 5"
     }
   ],

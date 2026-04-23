@@ -8,5 +8,6 @@ export default defineConfig({
       '**/ondc-mock-server/**',
     ],
     environment: 'node',
+    setupFiles: ['./tests/setup.ts'],
   },
 });

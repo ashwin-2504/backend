@@ -4,10 +4,11 @@ import helmet from 'helmet';
 import compression from 'compression';
 import rateLimit from 'express-rate-limit';
 import routes from './routes/index.js';
-import { ondcClient } from './integrations/ondcClient.js';
+
 import { errorHandler } from './middleware/error.js';
 import { logger } from './utils/logger.js';
 import { config } from './utils/config.js';
+import { RATE_LIMIT } from './utils/constants.js';
 
 const app = express();
 
@@ -22,10 +23,10 @@ app.use(cors());
 app.use(compression());
 app.use(express.json());
 
-// Rate Limiting (limit each IP to 100 requests per 15 mins)
+// Rate Limiting
 const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: config.nodeEnv === 'production' ? 100 : 1000,
+  windowMs: RATE_LIMIT.WINDOW_MS,
+  max: config.nodeEnv === 'production' ? RATE_LIMIT.MAX_PROD : RATE_LIMIT.MAX_DEV,
   standardHeaders: true,
   legacyHeaders: false,
 });
@@ -58,12 +59,6 @@ app.use(routes);
 // Error Handling
 app.use(errorHandler);
 
-// Initial connectivity check with ONDC Mock Server
-if (config.nodeEnv === 'production') {
-  ondcClient.checkHealth().catch(err => logger.error('Initial ONDC health check failed', err));
-} else {
-  // In development, we can run it too but maybe make it less aggressive or just log naturally
-  ondcClient.checkHealth().catch(() => {});
-}
+
 
 export default app;

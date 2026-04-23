@@ -1,20 +1,25 @@
+import 'dotenv/config';
 import app from './app.js';
 import { validateEnv, config } from './utils/config.js';
 import { logger } from './utils/logger.js';
+import { cleanupService } from './services/cleanupService.js';
+import { BIZ } from './utils/constants.js';
 
 validateEnv();
 
 const PORT = config.port;
+const HOST = config.host;
 
-const server = app.listen(PORT, async () => {
-  logger.info(`BharatMandi Backend listening on port ${PORT}`, {
+const server = app.listen(PORT, HOST, () => {
+    logger.info(`OnlineMarket Backend listening on ${HOST}:${PORT}`, {
+    url: config.apiUrl,
+    host: HOST,
     port: PORT,
     env: config.nodeEnv
   });
 
-  // Check ONDC Mock Server connectivity on startup to "wake it up"
-  const { ondcClient } = await import('./integrations/ondcClient.js');
-  await ondcClient.checkHealth();
+  // Start background tasks
+  cleanupService.start();
 });
 
 // Graceful Shutdown
@@ -25,11 +30,11 @@ const shutdown = () => {
     process.exit(0);
   });
 
-  // Force shutdown after 10s
+  // Force shutdown after timeout
   setTimeout(() => {
     logger.error('Could not close connections in time, forcefully shutting down');
     process.exit(1);
-  }, 10000);
+  }, BIZ.SHUTDOWN_TIMEOUT_MS);
 };
 
 process.on('SIGTERM', shutdown);

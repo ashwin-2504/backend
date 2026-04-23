@@ -1,28 +1,24 @@
-import { supabase } from '../lib/supabase.js';
+import { db } from '../lib/firebase.js';
 import { logger } from '../utils/logger.js';
 
-const KEEP_ALIVE_TABLES = ['products', 'orders', 'transactions'] as const;
+const KEEP_ALIVE_COLLECTIONS = ['products', 'orders', 'transactions'] as const;
 
 export class KeepAliveService {
   async pingDatabase() {
     const checkedAt = new Date().toISOString();
     const errors: string[] = [];
 
-    for (const table of KEEP_ALIVE_TABLES) {
-      const { error } = await supabase
-        .from(table)
-        .select('id')
-        .limit(1);
-
-      if (!error) {
-        logger.info('Supabase keep-alive ping succeeded', { table, checkedAt });
-        return { ok: true, table, checkedAt };
+    for (const collection of KEEP_ALIVE_COLLECTIONS) {
+      try {
+        await db.collection(collection).limit(1).get();
+        logger.info('Firebase Firestore keep-alive ping succeeded', { collection, checkedAt });
+        return { ok: true, collection, checkedAt };
+      } catch (error: any) {
+        errors.push(`${collection}: ${error.message}`);
       }
-
-      errors.push(`${table}: ${error.message}`);
     }
 
-    const message = `Supabase keep-alive failed for all probe tables: ${errors.join('; ')}`;
+    const message = `Firestore keep-alive failed for all probe collections: ${errors.join('; ')}`;
     logger.error(message);
     throw new Error(message);
   }
