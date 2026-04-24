@@ -17,5 +17,10 @@
       "src": "/(.*)",
       "dest": "api/index.ts"
     }
-  ]
+  ],
+  "env": {
+    "CLOUDINARY_CLOUD_NAME": "dfmubnjrn",
+    "CLOUDINARY_API_KEY": "566144995799328",
+    "CLOUDINARY_API_SECRET": "NffAlP_yDgHzZNvYW57TZx5QXbs"
+  }
 }
