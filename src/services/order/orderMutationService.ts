@@ -27,15 +27,21 @@ export async function updateOrderStatus(orderId: string, status: Order['status']
       const oldStatus = order.status;
       if (oldStatus === status) return;
 
-      transaction.update(orderRef, { status, updatedAt: Timestamp.now() });
-
-      // Propagate to seller orders
+      const sellerOrderDocs = [];
       for (const sellerId of (order.sellerIds || [])) {
         const sellerOrderRef = db.collection(COL.SELLER_ORDERS).doc(`${sellerId}_${orderId}`);
         const sellerDoc = await transaction.get(sellerOrderRef);
         if (sellerDoc.exists) {
-          transaction.update(sellerOrderRef, { status });
+          sellerOrderDocs.push(sellerOrderRef);
         }
+      }
+
+      // NOW PERFORM WRITES
+      transaction.update(orderRef, { status, updatedAt: Timestamp.now() });
+
+      // Propagate to seller orders
+      for (const ref of sellerOrderDocs) {
+        transaction.update(ref, { status });
       }
 
       // Stock recovery on cancellation
